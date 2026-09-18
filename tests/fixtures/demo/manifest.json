@@ -1,0 +1,7 @@
+{
+  "data_mode": "demo",
+  "label": "DEMO / NOT EMPIRICAL",
+  "description": "All fixture identities and values are generated and synthetic.",
+  "seed": 20260917,
+  "source_classes": ["college", "summer", "showcase"]
+}
