@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from draft_model.contracts import DataMode, FeatureRow, Prediction, Role
+from draft_model.contracts import DataMode, FeatureRow, Prediction, Role, label_for_data_mode
 
 
 @dataclass(frozen=True)
@@ -45,6 +45,7 @@ def predict(model: FittedModel, row: FeatureRow, data_mode: DataMode = DataMode.
     probability = 1.0 / (1.0 + math.exp(-(point - 2.0) / max(model.residual_scale, 0.5)))
     return Prediction(
         data_mode=data_mode,
+        label=label_for_data_mode(data_mode),
         player_id=row.player_id,
         name=row.name,
         role=row.role,

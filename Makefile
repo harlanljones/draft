@@ -21,11 +21,11 @@ test:
 
 backtest:
 	$(PYTHON) -m draft_model.cli backtest --data-mode $(DATA_MODE) --output artifacts/$(DATA_MODE)/backtest.json
-	@echo "demo backtest complete"
+	@echo "$(DATA_MODE) backtest complete"
 
 board:
 	$(PYTHON) -m draft_model.cli build --data-mode $(DATA_MODE) --output-dir artifacts/$(DATA_MODE)
-	@echo "demo artifacts complete"
+	@echo "$(DATA_MODE) artifacts complete"
 
 api:
 	$(PYTHON) -m uvicorn draft_model.api:app --reload

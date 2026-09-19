@@ -18,22 +18,25 @@ Four temporal folds (2022 hitter/pitcher, 2023 hitter/pitcher) using ridge regre
 | 2022 Hitter | 156 | 170 | 1.2% | −0.087 | 0.170 | 95.3% | 0.017 |
 | 2022 Pitcher | 226 | 209 | 2.4% | −0.337 | 0.075 | 99.5% | 0.005 |
 | 2023 Hitter | 326 | 174 | 1.7% | −0.136 | 0.199 | 94.8% | 0.017 |
-| 2023 Pitcher | 435 | 221 | 0.5% | −0.192 | 0.090 | 98.6% | 0.013 |
+| 2023 Pitcher | 435 | 221 | 0.5% | −0.218 | 0.069 | 98.6% | 0.013 |
 
 The negative rank correlations are expected — college stats alone don't predict draft position (top picks are drafted on projection). The data pipeline, identity resolution, and temporal leakage controls are verified. Unlocking meaningful MLB-outcome predictions requires a Chadwick Register that includes recent draft classes' MLBAM IDs (the current free snapshot is stale for 2021–2023 players).
 
 ## Outcome Prediction Pipeline
 
 ```
-NCAA stats (ncaa_bbStats)    MLBAM ID via player_profile
-         ↓                              ↓
-  Draft cohort (1,842 picks) → Chadwick Register → BRef ID → Lahman debut
-         ↓
+ncaa_bbStats (MLB.com draft listings, NCAA college stats)
+             ↓
+  Draft cohort (1,842 picks, 2021-2023) joined to college stat lines
+  by normalized name + school + year
+             ↓
   Features (age, competition, offense/dominance, discipline/strike%)
-         ↓
+             ↓
   Ridge regression (L2=1.0, closed-form, fold-local standardization)
-         ↓
-  Backtest: 2022–2023 temporal folds → metrics, intervals, calibration
+             ↓
+  Backtest: 2022-2023 temporal folds → metrics, intervals, calibration
+             ↓
+  Target: draft-position proxy (MLB debut/Lahman outcome join not yet connected)
 ```
 
 ## Commands

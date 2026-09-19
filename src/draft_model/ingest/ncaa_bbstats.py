@@ -5,6 +5,7 @@ import json
 import re
 import unicodedata
 from datetime import date
+from functools import lru_cache
 from typing import Any
 
 from draft_model.contracts import Observation, Prospect, Role, SourceKind
@@ -94,7 +95,7 @@ def _load_college_stats() -> dict[str, dict[str, Any]]:
     return stats
 
 
-def build_empirical_prospects() -> list[Prospect]:
+def build_empirical_prospects_uncached() -> list[Prospect]:
     picks = _load_draft_picks()
     school_map = _build_school_map(picks)
     stats = _load_college_stats()
@@ -198,6 +199,12 @@ def build_empirical_prospects() -> list[Prospect]:
         ))
 
     return prospects
+
+
+@lru_cache(maxsize=1)
+def build_empirical_prospects_cached() -> list[Prospect]:
+    """Cache one scrape of live sources per process so repeated calls reuse it."""
+    return build_empirical_prospects_uncached()
 
 
 def empirical_checksum(prospects: list[Prospect]) -> str:

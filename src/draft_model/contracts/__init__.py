@@ -9,6 +9,11 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 SCHEMA_VERSION = "1.0"
 MODEL_VERSION = "demo-ridge-1.0"
 DEMO_LABEL = "DEMO / NOT EMPIRICAL"
+EMPIRICAL_LABEL = "EMPIRICAL (NCAA DATA) / LIMITED COHORT"
+
+
+def label_for_data_mode(data_mode: DataMode) -> str:
+    return DEMO_LABEL if data_mode == DataMode.DEMO else EMPIRICAL_LABEL
 
 
 class Role(StrEnum):

@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from draft_model.contracts import DEMO_LABEL, DataMode, RunManifest
+from draft_model.contracts import DataMode, RunManifest
 from draft_model.demo import DEMO_SEED, demo_checksum, load_demo_prospects
 from draft_model.service import backtest, board
 
@@ -105,7 +105,7 @@ Phase 1 delivers the plumbing and the skepticism required for a credible public 
 """
 
 
-def _rank_chart(folds: list[dict[str, Any]]) -> str:
+def _rank_chart(folds: list[dict[str, Any]], label: str) -> str:
     bars = []
     for index, fold in enumerate(folds):
         value = float(fold["rank_correlation"])
@@ -116,13 +116,13 @@ def _rank_chart(folds: list[dict[str, Any]]) -> str:
         bars.append(f'<rect x="{x}" y="{y:.1f}" width="16" height="{height:.1f}" fill="{color}"/>')
     return (
         '<svg xmlns="http://www.w3.org/2000/svg" width="520" height="170" role="img" '
-        'aria-label="Synthetic fold rank correlations"><rect width="100%" height="100%" fill="#f5f1e8"/>'
-        '<text x="20" y="22" font-family="sans-serif" font-size="14">DEMO / NOT EMPIRICAL: fold rank correlation</text>'
+        f'aria-label="{label} fold rank correlations"><rect width="100%" height="100%" fill="#f5f1e8"/>'
+        f'<text x="20" y="22" font-family="sans-serif" font-size="14">{label}: fold rank correlation</text>'
         '<line x1="20" y1="120" x2="500" y2="120" stroke="#555"/>' + "".join(bars) + "</svg>\n"
     )
 
 
-def _uncertainty_chart(predictions: list[dict[str, Any]]) -> str:
+def _uncertainty_chart(predictions: list[dict[str, Any]], label: str) -> str:
     bars = []
     for index, prediction in enumerate(predictions):
         width = min(float(prediction["uncertainty_width"]) * 15, 350)
@@ -133,16 +133,83 @@ def _uncertainty_chart(predictions: list[dict[str, Any]]) -> str:
     return (
         '<svg xmlns="http://www.w3.org/2000/svg" width="520" height="170" role="img" '
         'aria-label="Synthetic prediction uncertainty"><rect width="100%" height="100%" fill="#f5f1e8"/>'
-        '<text x="10" y="18" font-family="sans-serif" font-size="13">DEMO / NOT EMPIRICAL: interval width</text>'
+        f'<text x="10" y="18" font-family="sans-serif" font-size="13">{label}: interval width</text>'
         + "".join(bars)
         + "</svg>\n"
     )
 
 
+def _report_empirical(folds: list[dict[str, Any]], limitations: list[str]) -> str:
+    fold_rows = "\n".join(
+        f"| {fold['draft_year']} {fold['role']} | {fold['train_size']} | {fold['test_size']} | "
+        f"{fold['rank_correlation']} | {fold['mean_absolute_error']} | {fold['interval_coverage']} | "
+        f"{fold['brier_score']} |"
+        for fold in folds
+    )
+    limitation_rows = "\n".join(f"- {item}" for item in limitations)
+    return f"""# DRAFT — Empirical Mode Methodology and Results
+
+> **EMPIRICAL (NCAA DATA) / LIMITED COHORT**
+
+## Data and Scope
+
+This run uses real data delivered by the MIT-licensed `ncaa_bbStats` package: MLB draft selections for
+2021-2023 scraped from public MLB.com draft listings and NCAA college batting and pitching
+player-season statistics. Draft picks are joined to college stat lines by normalized full name,
+school, and draft year, with a school-name canonicalization pass. Only drafted college players with a
+matched stat line enter modeling; high-school, junior-college, and unmatched players are excluded.
+All observation records carry `synthetic: false` and an explicit `available_at` date of May 15 in the
+draft year, before the May 31 prediction cutoff.
+
+## Outcome Target
+
+The modeled target is a draft-position proxy derived from round and pick number, not MLB performance.
+It is a monotone decreasing function of selection cost and exists only because a validated MLB
+outcome join (Lahman plus a current Chadwick Register) is not yet connected for these recent draft
+classes. No projection in this release should be read as a forecast of major-league value.
+
+## Features and Model
+
+Role-specific ridge regressions (L2 penalty 1.0, closed form, fold-local standardization) over six
+cutoff-safe features per role: age relative to the May 31 cutoff (birth dates estimated from class
+year), competition strength, offense or dominance rates, discipline or strike percentage, a scouting
+grade placeholder, and summer share or velocity. Training for each fold uses only draft classes
+strictly before the test year; no random splits are used.
+
+## Temporal Results
+
+| Draft year / role | Train | Test | Rank rho | MAE | Interval coverage | Brier |
+|---|---|---|---|---|---|---|
+{fold_rows}
+
+Rank correlations are at or below zero. This is the expected behavior of college statistics against
+a draft-position target: teams draft on projection, tools, and signability, not solely on college
+box-score production. The metrics demonstrate that the empirical pipeline executes end to end with
+leakage controls intact; they do not establish predictive skill for MLB outcomes.
+
+## Limitations
+
+{limitation_rows}
+
+- College stat lines dated May 15 may include games played after that calendar date in reality; a
+  fully verified per-game availability ledger is not available for these seasons.
+- The scouting feature is a neutral placeholder (grade 50), so this run measures college statistics
+  and age only.
+- 2021-2023 draftees are right-censored for any MLB outcome horizon; no MLB performance claim is made.
+
+## Reproducibility
+
+The run manifest records the input checksum of the canonical prospect set, model and schema
+versions, seed, cutoff, and these limitations. Regenerating artifacts re-fetches the same public
+sources; identity of outputs across runs is expected but not guaranteed against upstream site edits.
+"""
+
+
 def build_artifacts(output_dir: Path, data_mode: str = "demo") -> list[Path]:
     DataMode(data_mode)
     output_dir.mkdir(parents=True, exist_ok=True)
-    board_result = board(data_mode)
+    draft_year = 2023 if data_mode == "empirical" else 2026
+    board_result = board(data_mode, draft_year)
     backtest_result = backtest(data_mode)
     board_payload = board_result.model_dump(mode="json")
     backtest_payload = backtest_result.model_dump(mode="json")
@@ -157,7 +224,7 @@ def build_artifacts(output_dir: Path, data_mode: str = "demo") -> list[Path]:
         writer.writeheader()
         for rank, prediction in enumerate(board_result.predictions, start=1):
             writer.writerow({
-                "label": DEMO_LABEL,
+                "label": board_result.label,
                 "rank": rank,
                 "player_id": prediction.player_id,
                 "name": prediction.name,
@@ -168,24 +235,58 @@ def build_artifacts(output_dir: Path, data_mode: str = "demo") -> list[Path]:
                 "probability_two_war": prediction.probability_two_war,
             })
 
-    prospects = load_demo_prospects()
+    if board_result.data_mode == DataMode.EMPIRICAL:
+        from draft_model.ingest.ncaa_bbstats import (
+            build_empirical_prospects_cached,
+            empirical_checksum,
+        )
+
+        input_checksum = empirical_checksum(build_empirical_prospects_cached())
+        configuration: dict[str, Any] = {
+            "ridge_penalty": 1.0,
+            "summer_weight": 1.5,
+            "draft_year": board_result.as_of.year,
+            "target": "draft_position_proxy",
+        }
+        report = _report_empirical(backtest_payload["folds"], backtest_result.limitations)
+        model_card = (
+            "# Model Card\n\n> **EMPIRICAL (NCAA DATA) / LIMITED COHORT**\n\n"
+            "Role-specific ridge regressions over real NCAA college statistics and MLB draft listings "
+            "(ncaa_bbStats, MIT). The outcome target is a draft-position proxy, not MLB performance. "
+            "Birth dates are estimated from class year; scouting is a neutral placeholder. "
+            "Not suitable for player evaluation.\n"
+        )
+        chart_label = "EMPIRICAL (NCAA DATA)"
+    else:
+        prospects = load_demo_prospects()
+        input_checksum = demo_checksum(prospects)
+        configuration = {"ridge_penalty": 1.0, "summer_weight": 1.5, "draft_year": 2026}
+        report = _report()
+        model_card = (
+            "# Model Card\n\n> **DEMO / NOT EMPIRICAL**\n\n"
+            "Role-specific ridge regressions over invented age, competition, performance, and scouting fixtures. "
+            "Not suitable for player evaluation. Empirical mode is disabled.\n"
+        )
+        chart_label = "DEMO / NOT EMPIRICAL"
+
     manifest = RunManifest(
         seed=DEMO_SEED,
         as_of=board_result.as_of,
-        input_checksum=demo_checksum(prospects),
-        configuration={"ridge_penalty": 1.0, "summer_weight": 1.5, "draft_year": 2026},
+        data_mode=board_result.data_mode,
+        label=board_result.label,
+        input_checksum=input_checksum,
+        configuration=configuration,
         limitations=board_result.limitations,
     )
     _write_json(output_dir / "run-manifest.json", manifest.model_dump(mode="json"))
-    (output_dir / "methodology.md").write_text(_report(), encoding="utf-8")
-    (output_dir / "model-card.md").write_text(
-        "# Model Card\n\n> **DEMO / NOT EMPIRICAL**\n\n"
-        "Role-specific ridge regressions over invented age, competition, performance, and scouting fixtures. "
-        "Not suitable for player evaluation. Empirical mode is disabled.\n",
-        encoding="utf-8",
+    (output_dir / "methodology.md").write_text(report, encoding="utf-8")
+    (output_dir / "model-card.md").write_text(model_card, encoding="utf-8")
+    (output_dir / "rank-correlation.svg").write_text(
+        _rank_chart(backtest_payload["folds"], chart_label), encoding="utf-8"
     )
-    (output_dir / "rank-correlation.svg").write_text(_rank_chart(backtest_payload["folds"]), encoding="utf-8")
-    (output_dir / "uncertainty.svg").write_text(_uncertainty_chart(board_payload["predictions"]), encoding="utf-8")
+    (output_dir / "uncertainty.svg").write_text(
+        _uncertainty_chart(board_payload["predictions"], chart_label), encoding="utf-8"
+    )
     return sorted(path for path in output_dir.iterdir() if path.is_file())
 
 

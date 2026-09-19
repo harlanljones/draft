@@ -16,8 +16,20 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-college = ["ncaa-bbstats>=1.4.2"]
-empirical = ["ncaa-bbstats>=1.4.2"]
+college = [
+  "ncaa-bbstats>=1.4.2",
+  "requests>=2.31",
+  "beautifulsoup4>=4.12",
+  "lxml>=5.0",
+  "pandas>=2.0",
+]
+empirical = [
+  "ncaa-bbstats>=1.4.2",
+  "requests>=2.31",
+  "beautifulsoup4>=4.12",
+  "lxml>=5.0",
+  "pandas>=2.0",
+]
 dev = [
   "httpx2==2.13.0",
   "mypy==1.18.2",

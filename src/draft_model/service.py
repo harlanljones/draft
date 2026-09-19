@@ -37,8 +37,8 @@ def backtest(data_mode: str | DataMode = DataMode.DEMO) -> BacktestResult:
     if mode == DataMode.EMPIRICAL:
         if not _try_empirical():
             raise ValueError("ncaa_bbStats is required for empirical mode: pip install 'draft-prospect-model[empirical]'")
-        from draft_model.ingest.ncaa_bbstats import build_empirical_prospects
-        prospects = build_empirical_prospects()
+        from draft_model.ingest.ncaa_bbstats import build_empirical_prospects_cached
+        prospects = build_empirical_prospects_cached()
         rows = [build_features(p, date(p.draft_year, 5, 31)) for p in prospects if p.observations]
         result = run_backtest(rows)
         result.data_mode = DataMode.EMPIRICAL
@@ -77,8 +77,8 @@ def board(data_mode: str | DataMode = DataMode.DEMO, draft_year: int = 2026) -> 
     if mode == DataMode.EMPIRICAL:
         if not _try_empirical():
             raise ValueError("ncaa_bbStats is required for empirical mode: pip install 'draft-prospect-model[empirical]'")
-        from draft_model.ingest.ncaa_bbstats import build_empirical_prospects
-        prospects = build_empirical_prospects()
+        from draft_model.ingest.ncaa_bbstats import build_empirical_prospects_cached
+        prospects = build_empirical_prospects_cached()
         training = [p for p in prospects if p.draft_year <= 2023 and p.observations]
         training_rows = [build_features(p, date(p.draft_year, 5, 31)) for p in training]
         candidates = [p for p in prospects if p.draft_year == draft_year and p.observations]
