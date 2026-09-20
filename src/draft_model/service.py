@@ -26,6 +26,28 @@ def _try_empirical() -> bool:
         return False
 
 
+def _eada_evidence() -> str:
+    """Measured EADA context coverage over the empirical prospects, or the
+    static provenance sentence when the empirical extra is absent."""
+    if not _try_empirical():
+        return " EADA program-resource context (U.S. federal public domain) supplements both roles."
+    try:
+        from draft_model.ingest.ncaa_bbstats import build_empirical_prospects_cached
+
+        prospects = build_empirical_prospects_cached()
+        matched = sum(
+            any("eada_budget_pct" in o.raw_fields for o in p.observations) for p in prospects
+        )
+    except Exception:
+        return " EADA program-resource context (U.S. federal public domain) supplements both roles."
+    share = matched / len(prospects) if prospects else 0.0
+    return (
+        f" EADA program-resource context (U.S. federal public domain) matches "
+        f"{matched}/{len(prospects)} empirical prospects ({share:.1%}); unmatched schools "
+        f"fall back to a neutral feature value."
+    )
+
+
 def backtest(data_mode: str | DataMode = DataMode.DEMO) -> BacktestResult:
     mode = DataMode(data_mode)
     if mode == DataMode.DEMO:
@@ -122,7 +144,7 @@ def readiness() -> ReadinessResponse:
                 if has_empirical
                 else "6-4-3 Charts and SIS are candidate predictor partners, but no research license or dated historical delivery has been obtained."
             )
-            + " EADA program-resource context (U.S. federal public domain) supplements both roles.",
+            + _eada_evidence(),
         ),
         ReadinessGate(
             gate="validated_outcome_identity_joins",
