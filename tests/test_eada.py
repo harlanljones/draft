@@ -33,7 +33,7 @@ EADA_ROWS = [
 INDEX = build_eada_index(EADA_ROWS)
 
 
-def observation(raw_fields: dict) -> Observation:
+def observation(raw_fields: dict[str, object]) -> Observation:
     return Observation(
         observation_id="obs-1",
         player_id="p1",
