@@ -11,7 +11,8 @@ Full evidence and primary-source citations are in
 
 | Source | Status | Permitted project role | Blocking evidence |
 |---|---|---|---|
-| NCAA.com / stats.ncaa.org | Unavailable without written permission | None | Terms reserve statistics and restrict repurposing, duplication, exploitation, and derivative use; no immutable pre-draft export verified. |
+| EADA survey (U.S. Dept. of Education) | Available — U.S. federal public domain | Program-resource context features only (via `draft_model.ingest.eada`) | No blockers: federal work is public domain. Not a player cohort, performance predictor, or outcome source; conservative availability is one release cycle behind. |
+| NCAA.com / stats.ncaa.org | Unavailable without written permission | None | Terms reserve statistics and restrict repurposing, duplication, exploitation, and derivative use; no immutable pre-draft export verified. Public mirrors (ncaa_bbStats caches, armstjc) provide provenance but no upstream rights grant — their MIT licenses cover code only. |
 | School athletics pages | Unresolved per school and operator | None by default | Rights, archives, identifiers, and serving operators vary. Sample SIDEARM, PrestoSports, and StatBroadcast terms do not grant this workflow; StatBroadcast expressly restricts automated/ML use. |
 | Cape Cod Baseball League | Unavailable without written permission | None | Terms prohibit automated scripts and do not grant retention, modeling, or redistribution; dated 2015-2023 exports were not verified. |
 | Northwoods League / Pointstreak | Unavailable without written permission | None | Northwoods restricts mining, extraction, and publication; operator rights and complete dated coverage remain unresolved. |

@@ -95,6 +95,33 @@ def _load_college_stats() -> dict[str, dict[str, Any]]:
     return stats
 
 
+def _eada_raw_fields(school: str, draft_year: int, as_of: date) -> dict[str, Any]:
+    """Attach public-domain EADA program-resource context to an observation.
+
+    Import is lazy so the base ingest path never depends on the EADA module
+    (and to avoid a circular import: eada imports _normalize from here).
+    """
+    try:
+        from draft_model.ingest.eada import (
+            EADA_LICENSE_NAME,
+            EADA_SOURCE_NAME,
+            eada_context,
+        )
+    except ImportError:
+        return {}
+    context = eada_context(school, draft_year, as_of)
+    if context is None:
+        return {}
+    fields: dict[str, Any] = {
+        "eada_source": EADA_SOURCE_NAME,
+        "eada_license": EADA_LICENSE_NAME,
+        "eada_available_at": str(as_of),
+    }
+    for key, value in context.items():
+        fields[f"eada_{key}"] = value
+    return fields
+
+
 def build_empirical_prospects_uncached() -> list[Prospect]:
     picks = _load_draft_picks()
     school_map = _build_school_map(picks)
@@ -150,7 +177,10 @@ def build_empirical_prospects_uncached() -> list[Prospect]:
                         "available_at": available_at,
                         "synthetic": False,
                         "competition_strength": 0.7 if str(row.get("division", "")) == "1" else 0.5,
-                        "raw_fields": {k: str(v) for k, v in row.items() if k in ("g", "gs", "team")},
+                        "raw_fields": {
+                            **{k: str(v) for k, v in row.items() if k in ("g", "gs", "team")},
+                            **_eada_raw_fields(school_txt, year, observed_on),
+                        },
                         "plate_appearances": pa,
                         "hits": int(row.get("h", 0)),
                         "home_runs": int(row.get("hr", 0)),
@@ -177,7 +207,10 @@ def build_empirical_prospects_uncached() -> list[Prospect]:
                         "available_at": available_at,
                         "synthetic": False,
                         "competition_strength": 0.7 if str(row.get("division", "")) == "1" else 0.5,
-                        "raw_fields": {k: str(v) for k, v in row.items() if k in ("g", "gs", "team")},
+                        "raw_fields": {
+                            **{k: str(v) for k, v in row.items() if k in ("g", "gs", "team")},
+                            **_eada_raw_fields(school_txt, year, observed_on),
+                        },
                         "innings_pitched": innings,
                         "strikeouts": so,
                         "walks": bb,

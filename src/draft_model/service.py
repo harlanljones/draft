@@ -121,7 +121,8 @@ def readiness() -> ReadinessResponse:
                 "ncaa_bbStats provides NCAA-sourced college batting/pitching stats for 2021-2023."
                 if has_empirical
                 else "6-4-3 Charts and SIS are candidate predictor partners, but no research license or dated historical delivery has been obtained."
-            ),
+            )
+            + " EADA program-resource context (U.S. federal public domain) supplements both roles.",
         ),
         ReadinessGate(
             gate="validated_outcome_identity_joins",
@@ -142,6 +143,11 @@ def readiness() -> ReadinessResponse:
         evaluated_at=date(2026, 9, 17),
         gates=gates,
         sources=[
+            SourceDisposition(
+                source="EADA survey (U.S. Dept. of Education)",
+                status=SourceStatus.AVAILABLE,
+                permitted_role="Program-resource context features only; U.S. federal public domain",
+            ),
             SourceDisposition(
                 source="ncaa_bbStats (MIT)",
                 status=SourceStatus.AVAILABLE,
