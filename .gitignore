@@ -12,3 +12,4 @@ artifacts/demo/
 artifacts/empirical/
 data/raw/
 data/empirical/
+.hermes/
