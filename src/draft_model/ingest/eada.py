@@ -17,6 +17,7 @@ from __future__ import annotations
 import csv
 from datetime import date
 from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 from draft_model.ingest.ncaa_bbstats import _normalize
@@ -97,8 +98,22 @@ def build_eada_index(
     return index
 
 
+def _load_local_firstparty_rows() -> list[dict[str, str]]:
+    """Rows from a first-party EADA ingest under data/empirical/derived, if any."""
+    try:
+        from draft_model.ingest.eada_file import load_local_index
+    except ImportError:
+        return []
+    return load_local_index(Path("data/empirical/derived"))
+
+
 @lru_cache(maxsize=1)
 def _packaged_index() -> dict[tuple[str, str, int], dict[str, float]]:
+    local = _load_local_firstparty_rows()
+    if local:
+        # First-party ingest of the official federal archive wins: it covers
+        # every program that files EADA, not just the packaged extract.
+        return build_eada_index([dict(r) for r in local])
     return build_eada_index([dict(r) for r in _load_packaged_rows()])
 
 

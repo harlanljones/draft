@@ -29,6 +29,7 @@ empirical = [
   "beautifulsoup4>=4.12",
   "lxml>=5.0",
   "pandas>=2.0",
+  "openpyxl>=3.1",
 ]
 dev = [
   "httpx2==2.13.0",

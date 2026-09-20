@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from collections.abc import Sequence
 from pathlib import Path
@@ -81,6 +82,28 @@ def _parser() -> argparse.ArgumentParser:
     pipeline_parser.add_argument("--people-file", required=True)
     pipeline_parser.add_argument("--outcome-through-year", type=int, required=True)
     pipeline_parser.add_argument("--output-dir", type=Path, required=True)
+
+    eada_parser = subparsers.add_parser(
+        "ingest-eada",
+        help="download and derive first-party EADA program-resource context",
+        description=(
+            "Download official U.S. Department of Education EADA archives "
+            "(public domain), derive program-resource context rows, and write "
+            "a combined context CSV plus provenance manifest under the output "
+            "directory. The derived file is gitignored local data."
+        ),
+    )
+    eada_parser.add_argument(
+        "--academic-end-years",
+        type=int,
+        nargs="+",
+        required=True,
+        help="academic years' END year, e.g. 2023 for the 2022-23 survey",
+    )
+    eada_parser.add_argument("--download-dir", type=Path, default=Path("data/empirical/eada"))
+    eada_parser.add_argument(
+        "--output-dir", type=Path, default=Path("data/empirical/derived")
+    )
     return parser
 
 
@@ -161,6 +184,46 @@ def main(argv: Sequence[str] | None = None) -> int:
             audit_path = args.output_dir / "label-audit.json"
             audit_path.write_text(pipeline_result.audit.model_dump_json(indent=2) + "\n", encoding="utf-8")
             print(f"verify-empirical-labels complete: identity={pipeline_result.identity_path}, outcome={pipeline_result.outcome_path}, audit={audit_path}")
+            return 0
+        if args.command == "ingest-eada":
+            from draft_model.ingest.eada_file import (
+                build_context_rows,
+                download_eada_file,
+                extract_schools_workbook,
+                write_context_csv,
+            )
+
+            all_rows: list[dict[str, object]] = []
+            manifests: list[dict[str, object]] = []
+            for end_year in sorted(set(args.academic_end_years)):
+                provenance = download_eada_file(end_year, args.download_dir)
+                workbook = extract_schools_workbook(
+                    args.download_dir / provenance["file"],
+                    args.download_dir / "extracted" / str(end_year),
+                )
+                rows, unmatched = build_context_rows(workbook, end_year)
+                all_rows.extend(rows)
+                manifests.append(
+                    provenance
+                    | {"eada_year": end_year, "rows": len(rows), "unmatched_schools": len(unmatched)}
+                )
+                print(f"EADA {end_year - 1}-{end_year}: {len(rows)} programs, {len(unmatched)} unmatched")
+            args.output_dir.mkdir(parents=True, exist_ok=True)
+            write_context_csv(all_rows, args.output_dir / "eada-context.csv")
+            manifest = {
+                "schema_version": "1.0",
+                "source": "EADA survey (U.S. Department of Education)",
+                "license_name": "Public domain (U.S. federal government work)",
+                "license_url": "https://ope.ed.gov/athletics/#/datafile/list",
+                "derived_sha256": hashlib.sha256(
+                    (args.output_dir / "eada-context.csv").read_bytes()
+                ).hexdigest(),
+                "files": manifests,
+            }
+            (args.output_dir / "eada-context-manifest.json").write_text(
+                json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+            print(f"wrote {args.output_dir / 'eada-context.csv'} ({len(all_rows)} rows)")
             return 0
         if not verify_reproducibility(args.data_mode):
             print("reproducibility failed")
