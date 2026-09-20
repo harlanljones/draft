@@ -5,7 +5,7 @@ export PYTHONPATH := src
 .PHONY: setup lint typecheck test backtest board api reproducibility clean
 
 setup:
-	uv sync --extra dev --frozen
+	uv sync --extra dev --extra empirical --frozen
 
 lint:
 	@if $(PYTHON) -c 'import ruff' >/dev/null 2>&1; then $(PYTHON) -m ruff check src tests; else $(PYTHON) -m compileall -q src tests; fi
