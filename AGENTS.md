@@ -47,6 +47,10 @@ The following commands were implemented and verified locally on 2026-09-17 with 
   validated cohort package and pinned Lahman package without enabling empirical modeling.
 - `draft-model resolve-chadwick-identities ...`: resolve conservative exact-ID or full-name/DOB
   matches from validated local cohort and Chadwick packages.
+- `draft-model ingest-eada --academic-end-years 2019 ... 2023`: download official public-domain EADA
+  archives from ope.ed.gov, derive program-resource context, and write local (gitignored) context
+  CSV plus provenance manifest under `data/empirical/`; verified by `make lint`/`make test` and the
+  readiness coverage evidence.
 - `draft-model audit-empirical-labels ...`: join derived identity/outcome outputs by canonical player
   ID and report unresolved, conflicting, censored, and eligible label coverage without enabling modeling.
 
