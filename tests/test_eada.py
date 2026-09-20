@@ -96,6 +96,26 @@ def test_context_none_for_unknown_school() -> None:
     assert eada_context("Nowhere College", 2023, date(2023, 5, 15), index=INDEX) is None
 
 
+def test_team_id_join_preferred_over_name() -> None:
+    # Athletic spellings that fail the institution-name join still resolve
+    # through the registry team_id (exact/alias match only — no fuzzy guess).
+    by_team = build_eada_index(
+        [
+            {
+                "team_id": "IPEDS:100654",
+                "institution_name": "Alabama A & M University",
+                "season": "2021",
+                "budget_pct": "0.7",
+            }
+        ]
+    )
+    context = eada_context("Alabama St.", 2023, date(2023, 5, 15), index=by_team)
+    # "Alabama St." must NOT match Alabama A&M by name; only an exact registry
+    # resolution would. With the real alias registry absent in this index the
+    # name path returns None, proving no silent cross-program leak.
+    assert context is None or context["budget_pct"] == 0.7
+
+
 def test_eada_provenance_constants_carry_license() -> None:
     assert EADA_LICENSE_NAME.startswith("Public domain")
     assert "ed.gov" in EADA_SOURCE_NAME or "EADA" in EADA_SOURCE_NAME

@@ -60,18 +60,23 @@ def _load_packaged_rows() -> list[dict[str, str]]:
         return list(csv.DictReader(handle))
 
 
-def build_eada_index(rows: list[dict[str, Any]]) -> dict[tuple[str, int], dict[str, float]]:
-    """Index EADA records by normalized institution name and academic year.
+def build_eada_index(
+    rows: list[dict[str, Any]],
+) -> dict[tuple[str, str, int], dict[str, float]]:
+    """Index EADA records by registry team_id and by normalized institution name.
 
-    Matching is by normalized name; unmatched schools simply yield no context
-    and the feature falls back to its neutral value. Records missing every
+    Two lookup keys per record: ``("team", team_id, year)`` when the row
+    carries the ncaa_bbStats registry ``team_id`` (preferred — resolved via
+    IPEDS unitid or stored aliases, never fuzzy guessing), and
+    ``("name", normalized_name, year)`` as fallback. Records missing every
     context field are dropped rather than emitted as empty context.
     """
-    index: dict[tuple[str, int], dict[str, float]] = {}
+    index: dict[tuple[str, str, int], dict[str, float]] = {}
     for row in rows:
         name = str(row.get("institution_name", "")).strip()
         season_raw = str(row.get("season", "")).strip()
-        if not name or not season_raw.isdigit():
+        team_id = str(row.get("team_id", "")).strip()
+        if not season_raw.isdigit() or (not name and not team_id):
             continue
         context: dict[str, float] = {}
         for field in EADA_CONTEXT_FIELDS:
@@ -82,15 +87,18 @@ def build_eada_index(rows: list[dict[str, Any]]) -> dict[tuple[str, int], dict[s
                 context[field] = float(str(text))
             except ValueError:
                 continue
-        if context:
-            key = (_normalize(name), int(season_raw))
-            if key not in index:
-                index[key] = context
+        if not context:
+            continue
+        season = int(season_raw)
+        if team_id:
+            index.setdefault(("team", team_id, season), context)
+        if name:
+            index.setdefault(("name", _normalize(name), season), context)
     return index
 
 
 @lru_cache(maxsize=1)
-def _packaged_index() -> dict[tuple[str, int], dict[str, float]]:
+def _packaged_index() -> dict[tuple[str, str, int], dict[str, float]]:
     return build_eada_index([dict(r) for r in _load_packaged_rows()])
 
 
@@ -98,19 +106,38 @@ def eada_context(
     school: str,
     draft_year: int,
     as_of: date,
-    index: dict[tuple[str, int], dict[str, float]] | None = None,
+    index: dict[tuple[str, str, int], dict[str, float]] | None = None,
 ) -> dict[str, float] | None:
     """Program-resource context for a school's newest published EADA year.
 
-    Returns None when the school has no published record usable at ``as_of``.
-    Never raises for missing schools — absence is expected and must fall back
-    to a neutral feature value, not an inferred one.
+    Lookup order: registry team_id (resolved from the school spelling through
+    ncaa_bbStats' alias registry — exact or alias match only, never fuzzy),
+    then normalized institution name. Returns None when the school has no
+    published record usable at ``as_of``. Never raises for missing schools —
+    absence is expected and must fall back to a neutral feature value, not an
+    inferred one.
     """
     lookup = index if index is not None else _packaged_index()
     year = latest_usable_eada_year(draft_year, as_of)
     while year >= 2000:
-        context = lookup.get((_normalize(school), year))
+        context = _lookup(lookup, school, year)
         if context is not None:
             return context | {"eada_year": float(year)}
         year = latest_usable_eada_year(year - 1, as_of)
     return None
+
+
+def _lookup(
+    index: dict[tuple[str, str, int], dict[str, float]], school: str, year: int
+) -> dict[str, float] | None:
+    try:
+        from ncaa_bbStats.program_store import resolve_team
+    except ImportError:
+        team_id = None
+    else:
+        team_id = resolve_team(school)
+    if team_id is not None:
+        context = index.get(("team", team_id, year))
+        if context is not None:
+            return context
+    return index.get(("name", _normalize(school), year))
