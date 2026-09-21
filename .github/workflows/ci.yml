@@ -12,7 +12,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: pip
+      # No cache: pip here — deps install via uv (setup-uv caches itself);
+      # the pip cache dir never exists and its post-run save fails the job.
       - uses: astral-sh/setup-uv@v6
       - run: make setup
       - run: make lint
